@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Had – Jez ovoce, je zdravé!</title>
+  <style>
+    :root { --bg:#0f172a; --panel:#111827; --grid:#1f2937; --snake:#22c55e; --fruit:#f59e0b; --text:#e5e7eb; --muted:#94a3b8; --accent:#10b981; --danger:#ef4444; }
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,#0b1023 0%,#0f172a 60%);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,"Helvetica Neue",Arial,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol")}
+    .wrap{min-height:100%;display:grid;place-items:center;padding:24px}
+    .card{width:min(96vw,720px);background:rgba(17,24,39,.8);border:1px solid rgba(148,163,184,.2);border-radius:20px;box-shadow:0 10px 30px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.06);overflow:hidden}
+    .header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:rgba(15,23,42,.9);border-bottom:1px solid rgba(148,163,184,.2)}
+    .title{font-weight:700;letter-spacing:.5px}.sub{color:var(--muted);font-size:14px}
+    .content{padding:18px 16px 8px}
+    canvas{display:block;margin:0 auto;background:var(--panel);border-radius:14px;box-shadow:inset 0 0 0 1px rgba(148,163,184,.15);touch-action:none}
+    .hud{display:flex;gap:16px;justify-content:center;margin:10px 0 14px;color:var(--muted);font-size:14px}
+    .msg{text-align:center;font-size:clamp(18px,2.6vw,24px);letter-spacing:.06em}
+    .msg .revealed{color:var(--accent);font-weight:800;text-shadow:0 0 8px rgba(16,185,129,.35)}
+    .msg .hidden{color:#3b4457}
+    .controls{text-align:center;font-size:13px;color:var(--muted);margin:8px 0 16px}
+    .btns{display:flex;gap:8px;justify-content:center;margin-bottom:14px;flex-wrap:wrap}
+    button{background:#111827;color:var(--text);border:1px solid rgba(148,163,184,.25);border-radius:10px;padding:8px 12px;cursor:pointer;font-weight:600}
+    button:hover{border-color:var(--accent);box-shadow:0 0 0 3px rgba(16,185,129,.15)}
+    .overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.75);backdrop-filter:blur(4px)}
+    .dialog{background:#0b1224;border:1px solid rgba(148,163,184,.3);padding:24px;border-radius:18px;width:min(92vw,560px);text-align:center}
+    .dialog h1{margin:0 0 8px;font-size:clamp(22px,3.4vw,32px);color:#e2e8f0}
+    .finalText{text-align:center}.finalText h1{margin:0 0 6px;font-size:clamp(24px,3.6vw,34px)}.finalText p{margin:6px 0;font-size:clamp(16px,2.2vw,18px)}.finalText .sig{text-align:right;font-weight:700;letter-spacing:.02em}
+    .midOverlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,.6);pointer-events:none}
+    .midMsg{font-weight:900;text-align:center;color:#34d399;text-shadow:0 0 18px rgba(16,185,129,.55),0 0 2px rgba(0,0,0,.6);animation:popBlink 2s ease-in-out forwards;font-size:clamp(28px,5vw,48px)}
+    @keyframes popBlink{0%{transform:scale(.8);opacity:0}15%{transform:scale(1.15);opacity:1}30%{transform:scale(1)}50%{filter:brightness(1.25)}60%{filter:brightness(.9)}70%{filter:brightness(1.25)}80%{filter:brightness(.9)}100%{transform:scale(1.1);opacity:1;filter:brightness(1.2)}}
+    .touch-controls{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:12px}
+    .touch-controls button{width:60px;height:60px;font-size:24px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="header">
+        <div>
+          <div class="title">Klasický Had</div>
+          <div class="sub">Sněz ovoce → odhal nápis → vyhraj</div>
+        </div>
+        <div class="sub">WASD / šipky • Pauza: P</div>
+      </div>
+      <div class="content">
+        <canvas id="game" width="480" height="480" aria-label="Herní plocha – Had"></canvas>
+        <div class="hud">
+          <div>Skóre: <strong id="score">0</strong></div>
+          <div>Rychlost: <strong id="speed">1×</strong></div>
+          <div>Revealed: <strong id="revealedCount">0</strong>/<span id="messageLen">0</span></div>
+        </div>
+        <div id="message" class="msg" aria-live="polite"></div>
+        <div class="controls">Cíl: odhal celý nápis pod hrou.</div>
+        <div class="btns">
+          <button id="restartBtn" title="Restart">Restart</button>
+          <button id="slowerBtn" title="Pomaleji">− Rychlost</button>
+          <button id="fasterBtn" title="Rychleji">+ Rychlost</button>
+        </div>
+        <div class="touch-controls"><button id="upBtn">⬆️</button></div>
+        <div class="touch-controls"><button id="leftBtn">⬅️</button><button id="downBtn">⬇️</button><button id="rightBtn">➡️</button></div>
+      </div>
+    </div>
+  </div>
+  <div class="overlay" id="winOverlay" role="dialog" aria-modal="true">
+    <div class="dialog finalText">
+      <h1>GRATULUJI!</h1>
+      <p>právě jsi zjistil tajemství života,</p>
+      <p>vesmíru a tak vůbec!</p>
+      <p class="sig">-42</p>
+      <button id="playAgain">Hrát znovu</button>
+    </div>
+  </div>
+  <div class="midOverlay" id="midOverlay" aria-hidden="true"><div class="midMsg" id="midMsg"></div></div>
+  <script>
+    const MSG = "JEZ OVOCE, JE ZDRAVÉ!"; const GRID = 24; const CELL = 20;
+    const FRUITS = ["🍎","🍌","🍇","🍓","🍊","🍐","🍒","🍍","🥝"];
+    const canvas = document.getElementById('game'); const ctx = canvas.getContext('2d');
+    function fitCanvas(){ const dpr=Math.max(1,Math.floor(window.devicePixelRatio||1)); const css=CELL*GRID; canvas.style.width=css+'px'; canvas.style.height=css+'px'; canvas.width=css*dpr; canvas.height=css*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); }
+    fitCanvas(); window.addEventListener('resize', fitCanvas);
+    const scoreEl=document.getElementById('score'), speedEl=document.getElementById('speed'), msgEl=document.getElementById('message'), revealedCountEl=document.getElementById('revealedCount'), messageLenEl=document.getElementById('messageLen'), winOverlay=document.getElementById('winOverlay'); const midOverlay=document.getElementById('midOverlay'), midMsg=document.getElementById('midMsg'); messageLenEl.textContent=MSG.length;
+    function renderMaskedMessage(rev){ const rp=MSG.slice(0,rev), hp=MSG.slice(rev); const hm=[...hp].map(ch=>{if(ch===' ')return' '; if(",.!?-:;".includes(ch))return ch; return '•';}).join(''); msgEl.innerHTML=`<span class="revealed">${rp}</span><span class="hidden">${hm}</span>`; revealedCountEl.textContent=rev; }
+    const PUNCT=" ,.!?-:;"; function isWordEnd(rev){ if(rev<=0)return false; const prev=MSG[rev-1], next=MSG[rev]||""; const prevIsLetter=prev && !PUNCT.includes(prev); const nextIsBoundary=rev===MSG.length || PUNCT.includes(next); return prevIsLetter && nextIsBoundary; }
+    let snake,dir,nextDir,fruit,score,revealed,tickMs,timer,paused,growthQueue;
+    function initGame(keep=false){ const start={x:Math.floor(GRID/2),y:Math.floor(GRID/2)}; snake=[start,{x:start.x-1,y:start.y},{x:start.x-2,y:start.y}]; dir={x:1,y:0}; nextDir={x:1,y:0}; score=keep?score:0; revealed=keep?revealed:0; tickMs=140; paused=false; growthQueue=0; placeFruit(); updateHud(); renderMaskedMessage(revealed); draw(); startLoop(); }
+    function updateHud(){ scoreEl.textContent=score; const sf=140/tickMs; const label=(Math.round(sf*10)/10).toString().replace(/\.0$/,''); speedEl.textContent=label+'×'; }
+    function startLoop(){ stopLoop(); timer=setInterval(tick,tickMs);} function stopLoop(){ if(timer) clearInterval(timer); }
+    function placeFruit(){ do{ const x=(Math.random()*GRID)|0, y=(Math.random()*GRID)|0; const growth=1+((Math.random()*2)|0); fruit={x,y,kind:FRUITS[(Math.random()*FRUITS.length)|0],growth}; } while(snake.some(s=>s.x===fruit.x&&s.y===fruit.y)); }
+    const keyMap={ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0},w:{x:0,y:-1},s:{x:0,y:1},a:{x:-1,y:0},d:{x:1,y:0}};
+    document.addEventListener('keydown',e=>{ const nd=keyMap[e.key]; if(e.key==='p'||e.key==='P'){togglePause();return;} if(!nd)return; if(snake.length>1&&nd.x===-dir.x&&nd.y===-dir.y)return; nextDir=nd; });
+    document.getElementById('restartBtn').onclick=()=>initGame(false); document.getElementById('slowerBtn').onclick=()=>{tickMs=Math.min(260,tickMs+20);updateHud();startLoop();}; document.getElementById('fasterBtn').onclick=()=>{tickMs=Math.max(40,tickMs-20);updateHud();startLoop();};
+    function togglePause(){ paused=!paused; if(paused) stopLoop(); else startLoop(); }
+    function setDir(d){ if(snake.length>1&&d.x===-dir.x&&d.y===-dir.y) return; nextDir=d; } document.getElementById('upBtn').onclick=()=>setDir({x:0,y:-1}); document.getElementById('downBtn').onclick=()=>setDir({x:0,y:1}); document.getElementById('leftBtn').onclick=()=>setDir({x:-1,y:0}); document.getElementById('rightBtn').onclick=()=>setDir({x:1,y:0});
+    function tick(){ dir=nextDir; const head={x:(snake[0].x+dir.x+GRID)%GRID,y:(snake[0].y+dir.y+GRID)%GRID}; if(snake.some(s=>s.x===head.x&&s.y===head.y)){ const st={x:Math.floor(GRID/2),y:Math.floor(GRID/2)}; snake=[st,{x:st.x-1,y:st.y},{x:st.x-2,y:st.y}]; dir={x:1,y:0}; nextDir={x:1,y:0}; tickMs=140; updateHud(); startLoop(); draw(); return; } snake.unshift(head);
+      let ate=(head.x===fruit.x&&head.y===fruit.y); if(ate){ score++; if(revealed<MSG.length){ revealed++; renderMaskedMessage(revealed); if(isWordEnd(revealed)&&revealed<MSG.length){ tickMs=Math.max(40,tickMs/1.5);} if(revealed>=MSG.length){ win(); return; } } growthQueue+=fruit.growth; placeFruit(); tickMs=Math.max(40,tickMs-2); updateHud(); startLoop(); }
+      if(!ate){ if(growthQueue>0){ growthQueue--; } else { snake.pop(); } } draw(); }
+    function draw(){ ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--panel'); ctx.fillRect(0,0,canvas.width,canvas.height); ctx.save(); ctx.globalAlpha=.25; ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue('--grid'); for(let y=0;y<GRID;y++) for(let x=0;x<GRID;x++) ctx.fillRect(x*CELL,y*CELL,1,1); ctx.restore(); ctx.font=`${Math.floor(CELL*0.9)}px system-ui, Apple Color Emoji, Segoe UI Emoji`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(fruit.kind, fruit.x*CELL+CELL/2, fruit.y*CELL+CELL/2+1); snake.forEach((s,i)=>drawRoundedCell(s.x,s.y,i===0?'#22c55e':'#16a34a')); }
+    function drawRoundedCell(x,y,color){ const r=5, px=x*CELL, py=y*CELL; ctx.fillStyle=color; roundRect(ctx,px+1,py+1,CELL-2,CELL-2,r); ctx.fill(); }
+    function roundRect(ctx,x,y,w,h,r){ const rr=Math.min(r,w/2,h/2); ctx.beginPath(); ctx.moveTo(x+rr,y); ctx.arcTo(x+w,y,x+w,y+h,rr); ctx.arcTo(x+w,y+h,x,y+h,rr); ctx.arcTo(x,y+h,x,y,rr); ctx.arcTo(x,y,x+w,y,rr); ctx.closePath(); }
+    function win(){ stopLoop(); renderMaskedMessage(MSG.length); midMsg.textContent=MSG; midOverlay.style.display='flex'; setTimeout(()=>{ midOverlay.style.display='none'; winOverlay.style.display='flex'; },2000); }
+    document.getElementById('playAgain').onclick=()=>{ winOverlay.style.display='none'; score=0; revealed=0; initGame(false); };
+    renderMaskedMessage(0); initGame(false);
+  </script>
+</body>
+</html>
